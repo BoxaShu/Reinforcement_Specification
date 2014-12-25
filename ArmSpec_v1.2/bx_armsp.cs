@@ -10,6 +10,12 @@ using Db = Autodesk.AutoCAD.DatabaseServices;
 using Ed = Autodesk.AutoCAD.EditorInput;
 using Gem = Autodesk.AutoCAD.Geometry;
 using Rtm = Autodesk.AutoCAD.Runtime;
+using Win = Autodesk.AutoCAD.Windows;
+
+using System.Drawing;
+using System.Windows.Forms;
+using System.Windows.Forms.Integration;
+
 
 [assembly: Rtm.CommandClass(typeof(boxashu.Commands))]
 
@@ -19,7 +25,18 @@ namespace boxashu
     {
         private const double length_planed_reinforcement = 11700;
 
-        
+
+        private static Dictionary<string, _tablRow> pogonTab;
+        private static Dictionary<string, _tablRow> detalTab;
+        private static Dictionary<string, _tablRow> linTab;
+
+        private static Dictionary<string, _tablRow> krTab;
+        private static Dictionary<string, _tablRow> zdTab;
+
+        //создаю палитры
+        public static Win.PaletteSet _ps = null;
+      
+
         [Rtm.CommandMethod("bx_armsp")]
         static public void bx_armsp()
         {
@@ -188,13 +205,13 @@ namespace boxashu
             //Проходим по поганажу
             //List<_tablRow> pogonTab = new List<_tablRow>();
 
-            Dictionary<string, _tablRow> pogonTab = new Dictionary<string, _tablRow>();
-            Dictionary<string, _tablRow> detalTab = new Dictionary<string, _tablRow>();
-            Dictionary<string, _tablRow> linTab = new Dictionary<string, _tablRow>();
+            pogonTab = new Dictionary<string, _tablRow>();
+            detalTab = new Dictionary<string, _tablRow>();
+            linTab = new Dictionary<string, _tablRow>();
+
+            krTab = new Dictionary<string, _tablRow>();
+            zdTab = new Dictionary<string, _tablRow>();
             
-            Dictionary<string, _tablRow> krTab = new Dictionary<string, _tablRow>();
-            Dictionary<string, _tablRow> zdTab = new Dictionary<string, _tablRow>();
-            //Dictionary<string, _tablRow> ArmTab = new Dictionary<string, _tablRow>();
 
             foreach (_lin i in pogon)
             {
@@ -393,35 +410,66 @@ namespace boxashu
                 poz = poz + 1;
             }
 
-            
-
-            //тут выведим полученные таблицы в консоль
-
-
-
-
-            //// очищаем списки арматуры:
-            //Пгонажная арматура
-            pogon.Clear();
-            // Детали, гнутые стержни, хомуты, шпильки
-            detal.Clear();
-            //Прямая арматура
-            lin.Clear();
-            // Сборочные единицы
-            // - Каркасы
-            kr.Clear();
-            // - Закладные детали
-            zd.Clear();
-
-
         } // end static public void bx_armsp
 
+        public static List<Object> tablRowList()
+        {
+            List<Object> _tablRowList = new List<Object>();
+                //_tablRowList.Add((object)"Арматура в п.м.:");
+                _tablRowList.AddRange(pogonTab.Values.ToList());
+               // _tablRowList.Add((object)"Детали:");
+                _tablRowList.AddRange(detalTab.Values.ToList());
+                //_tablRowList.Add((object)"Арматурные стержни:");
+                _tablRowList.AddRange(linTab.Values.ToList());
+                //_tablRowList.Add((object)"Сборочные единицы:");
+                _tablRowList.AddRange(krTab.Values.ToList());
+                _tablRowList.AddRange(zdTab.Values.ToList());
+                return _tablRowList; 
+        }
+        
 
-        ////private static bool makeTabl(Dictionary<string, _tablRow> tab, int type, int )
-        ////{
+        //private static void makepalette()
+        //{
+
+        //    //тут выведим полученные таблицы в консоль
+        //    if (_ps == null)
+        //    {
+
+        //        // Create the palette set
+
+        //        _ps = new Win.PaletteSet("ArmSP");
+        //        _ps.Size = new Size(400, 600);
+        //        _ps.DockEnabled =
+        //          (Win.DockSides)((int)Win.DockSides.Left + (int)Win.DockSides.Right);
+
+        //        // Create our first user control instance and
+        //        // host it on a palette using AddVisual()
 
 
-        ////}
+        //        UserControl1 uc = new UserControl1();
+        //        _ps.AddVisual("AddVisual", uc);
+
+        //        //uc.main_grig.ItemsSource = tablRowList();
+
+        //        // Create our second user control instance and
+        //        // host it in an ElementHost, which allows
+        //        // interop between WinForms and WPF
+
+        //        //UserControl1 uc2 = new UserControl1();
+        //        //ElementHost host = new ElementHost();
+        //        //host.AutoSize = true;
+        //        //host.Dock = DockStyle.Fill;
+        //        //host.Child = uc2;
+        //        //_ps.Add("Add ElementHost", host);
+
+        //    }
+
+
+        //    // Display our palette set
+        //    //_ps.KeepFocus = true;
+        //    _ps.Visible = true;
+            
+        //}
 
 
         private static bool isPogonazh(Db.ObjectId objID)
