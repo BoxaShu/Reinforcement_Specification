@@ -188,13 +188,13 @@ namespace boxashu
             //Проходим по поганажу
             //List<_tablRow> pogonTab = new List<_tablRow>();
 
-            //Dictionary<string, _tablRow> pogonTab = new Dictionary<string, _tablRow>();
-            //Dictionary<string, _tablRow> detalTab = new Dictionary<string, _tablRow>();
-            //Dictionary<string, _tablRow> linTab = new Dictionary<string, _tablRow>();
+            Dictionary<string, _tablRow> pogonTab = new Dictionary<string, _tablRow>();
+            Dictionary<string, _tablRow> detalTab = new Dictionary<string, _tablRow>();
+            Dictionary<string, _tablRow> linTab = new Dictionary<string, _tablRow>();
             
             Dictionary<string, _tablRow> krTab = new Dictionary<string, _tablRow>();
             Dictionary<string, _tablRow> zdTab = new Dictionary<string, _tablRow>();
-            Dictionary<string, _tablRow> ArmTab = new Dictionary<string, _tablRow>();
+            //Dictionary<string, _tablRow> ArmTab = new Dictionary<string, _tablRow>();
 
             foreach (_lin i in pogon)
             {
@@ -204,15 +204,15 @@ namespace boxashu
 
                 _tablRow row = new _tablRow(1,0, d, 1, (int)Math.Ceiling(l * c));
                 string key = d.ToString();
-                if (ArmTab.ContainsKey(row.diameter.ToString()))
+                if (pogonTab.ContainsKey(row.diameter.ToString()))
                 {
-                    ArmTab[key].AddCounte(row.counte);
-                    ArmTab[key].AddObjID(i.id);
+                    pogonTab[key].AddCounte(row.counte);
+                    pogonTab[key].AddObjID(i.id);
                 }
                 else
                 {
-                    ArmTab.Add(key, row);
-                    ArmTab[key].AddObjID(i.id);
+                    pogonTab.Add(key, row);
+                    pogonTab[key].AddObjID(i.id);
                 }
             }
 
@@ -225,16 +225,16 @@ namespace boxashu
 
                 _tablRow row = new _tablRow(2, 0, d, l, c);
                 string key = d + "_" + l + " " + i.length_1 + " " + i.length_2;
-                if (ArmTab.ContainsKey(key))
+                if (detalTab.ContainsKey(key))
                 {
-                    ArmTab[key].AddCounte(row.counte);
-                    ArmTab[key].AddObjID(i.id);
+                    detalTab[key].AddCounte(row.counte);
+                    detalTab[key].AddObjID(i.id);
 
                 }
                 else
                 {
-                    ArmTab.Add(key, row);
-                    ArmTab[key].AddObjID(i.id);
+                    detalTab.Add(key, row);
+                    detalTab[key].AddObjID(i.id);
                 }
             }
 
@@ -247,15 +247,15 @@ namespace boxashu
 
                 _tablRow row = new _tablRow(3, 0, d, l, c);
                 string key = d + " " + l;
-                if (ArmTab.ContainsKey(key))
+                if (linTab.ContainsKey(key))
                 {
-                    ArmTab[key].AddCounte(row.counte);
-                    ArmTab[key].AddObjID(i.id);
+                    linTab[key].AddCounte(row.counte);
+                    linTab[key].AddObjID(i.id);
                 }
                 else
                 {
-                    ArmTab.Add(key, row);
-                    ArmTab[key].AddObjID(i.id);
+                    linTab.Add(key, row);
+                    linTab[key].AddObjID(i.id);
                 }
             }
 
@@ -291,20 +291,83 @@ namespace boxashu
             }
 
             // приступаем к нумеровке
-            
+            acEd.WriteMessage("\nАрматура в п.м.:");
             int poz = 1; // начальная позиция
 
-            var items = from pair in ArmTab
+            var items = from pair in pogonTab
+                        orderby pair.Value.diameter ascending
+                        select pair;
+
+            //foreach (KeyValuePair<string, _tablRow> i in pogonTab.OrderBy(i => i.Value.diameter))
+            foreach (KeyValuePair<string, _tablRow> i in items)
+            {
+                pogonTab[i.Key].position = poz;
+                foreach (Db.ObjectId j in pogonTab[i.Key].ObjIDList)
+                {
+                    Commands.SetAttrProperty(j, "ПОЗ", poz.ToString());
+                }
+                //Выплюнем в консль, то что получилось.
+                acEd.WriteMessage("\n{0} - {1} - {2} - {3}",
+                    pogonTab[i.Key].position,
+                    pogonTab[i.Key].diameter,
+                    pogonTab[i.Key].length,
+                    pogonTab[i.Key].counte);
+
+                poz = poz + 1;
+            }
+
+
+            acEd.WriteMessage("\nДетали:");
+
+            items = from pair in detalTab
                         orderby pair.Value.diameter ascending, pair.Value.length ascending
                         select pair;
 
             //foreach (KeyValuePair<string, _tablRow> i in pogonTab.OrderBy(i => i.Value.diameter))
             foreach (KeyValuePair<string, _tablRow> i in items)
             {
-                ArmTab[i.Key].position = poz;
+                detalTab[i.Key].position = poz;
+                foreach (Db.ObjectId j in detalTab[i.Key].ObjIDList)
+                {
+                    Commands.SetAttrProperty(j, "ПОЗ", poz.ToString());
+                }
+                //Выплюнем в консль, то что получилось.
+                acEd.WriteMessage("\n{0} - {1} - {2} - {3}",
+                    detalTab[i.Key].position,
+                    detalTab[i.Key].diameter,
+                    detalTab[i.Key].length,
+                    detalTab[i.Key].counte);
+
                 poz = poz + 1;
             }
 
+            acEd.WriteMessage("\nАрматурные стержни:");
+
+            items = from pair in linTab
+                    orderby pair.Value.diameter ascending, pair.Value.length ascending
+                    select pair;
+
+            //foreach (KeyValuePair<string, _tablRow> i in pogonTab.OrderBy(i => i.Value.diameter))
+            foreach (KeyValuePair<string, _tablRow> i in items)
+            {
+                linTab[i.Key].position = poz;
+                foreach (Db.ObjectId j in linTab[i.Key].ObjIDList)
+                {
+                    Commands.SetAttrProperty(j, "ПОЗ", poz.ToString());
+                }
+                //Выплюнем в консль, то что получилось.
+                acEd.WriteMessage("\n{0} - {1} - {2} - {3}",
+                    linTab[i.Key].position,
+                    linTab[i.Key].diameter,
+                    linTab[i.Key].length,
+                    linTab[i.Key].counte);
+
+                poz = poz + 1;
+            }
+
+
+
+            acEd.WriteMessage("\nСборочные единицы");
             poz = 1; // начальная позиция
 
             items = from pair in krTab
@@ -315,10 +378,25 @@ namespace boxashu
             foreach (KeyValuePair<string, _tablRow> i in items)
             {
                 krTab[i.Key].position = poz;
+
+                foreach (Db.ObjectId j in krTab[i.Key].ObjIDList)
+                {
+                    Commands.SetAttrProperty(j, "ПОЗ", poz.ToString());
+                }
+
+                //Выплюнем в консль, то что получилось.
+                acEd.WriteMessage("\n{0} - {1} - {2} - {3}",
+                    krTab[i.Key].position,
+                    krTab[i.Key].diameter,
+                    krTab[i.Key].length,
+                    krTab[i.Key].counte);   
                 poz = poz + 1;
             }
 
             
+
+            //тут выведим полученные таблицы в консоль
+
 
 
 

@@ -68,6 +68,12 @@ namespace boxashu
             //set { _counte = value; }
         }
 
+        public List<Db.ObjectId> ObjIDList
+        {
+            get { return _objIDList; }
+            //set { _counte = value; }
+        }
+
         public void AddCounte(int value)
         {
            _counte = _counte+ value; 
@@ -82,6 +88,7 @@ namespace boxashu
         {
             _objIDList.Add(value);
         }
+
 
     }
 
