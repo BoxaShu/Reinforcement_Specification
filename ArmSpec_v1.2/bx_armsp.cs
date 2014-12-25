@@ -1,0 +1,497 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+using App = Autodesk.AutoCAD.ApplicationServices;
+using cad = Autodesk.AutoCAD.ApplicationServices.Application;
+using Db = Autodesk.AutoCAD.DatabaseServices;
+using Ed = Autodesk.AutoCAD.EditorInput;
+using Gem = Autodesk.AutoCAD.Geometry;
+using Rtm = Autodesk.AutoCAD.Runtime;
+
+[assembly: Rtm.CommandClass(typeof(boxashu.Commands))]
+
+namespace boxashu
+{
+    public class Commands
+    {
+        private const double length_planed_reinforcement = 11700;
+
+        
+        [Rtm.CommandMethod("bx_armsp")]
+        static public void bx_armsp()
+        {
+            
+            //// Списки арматуры:
+            //Пгонажная арматура
+            List<_lin> pogon = new List<_lin>();
+            // Детали, гнутые стержни, хомуты, шпильки
+            List<_lin> detal = new List<_lin>();
+            //Прямая арматура
+            List<_lin> lin = new List<_lin>();
+            // Сборочные единицы
+            // - Каркасы
+            List<_kr> kr = new List<_kr>();
+            // - Закладные детали
+            List<_zd> zd = new List<_zd>();
+
+            
+            // Получение текущего документа и базы данных
+            App.Document acDoc = App.Application.DocumentManager.MdiActiveDocument;
+            Db.Database acCurDb = acDoc.Database;
+            Ed.Editor acEd = acDoc.Editor;
+
+
+            ////////Секция предварительного выбора
+            //////Ed.PromptSelectionResult acSSPrompt = acEd.SelectImplied();
+            //////Ed.SelectionSet acSSet = null;
+
+            //////// Если статус запроса OK, объекты были выбраны перед запуском команды
+            //////if (acSSPrompt.Status == Ed.PromptStatus.OK)
+            //////    acSSet = acSSPrompt.Value;
+
+            //////Dictionary<Db.ObjectId, string> ObjID_Dic = new Dictionary<Db.ObjectId, string>();
+
+            
+            
+            
+            //Ed.PromptEntityOptions EntOpt = new Ed.PromptEntityOptions("\n Select block:");
+            //EntOpt.SetRejectMessage("\n Entity must be a block.");
+            //EntOpt.AddAllowedClass(typeof(Db.BlockReference), false);
+            //EntOpt.AllowObjectOnLockedLayer = true;
+            //Ed.PromptEntityResult EntRes = acEd.GetEntity(EntOpt);
+
+            //if (EntRes.Status != Ed.PromptStatus.OK)
+            //{
+            //    acEd.WriteMessage("\n Cencel.");
+            //    return;
+            //}
+
+                Db.TypedValue[] acTypValAr = new Db.TypedValue[1];
+                acTypValAr.SetValue(new Db.TypedValue((int)Db.DxfCode.Start, "INSERT"), 0);
+                Ed.SelectionFilter acSelFtr = new Ed.SelectionFilter(acTypValAr);
+
+
+                Ed.PromptSelectionResult acSSPrompt = acDoc.Editor.GetSelection(acSelFtr);
+                if (acSSPrompt.Status != Ed.PromptStatus.OK)
+                {
+                    return;
+                }
+
+            String acBlockName = "0";
+
+            // старт транзакции
+            // Ищу истенное имя выбранного блока и читаю его атрибуты
+            using (Db.Transaction acTrans = acCurDb.TransactionManager.StartOpenCloseTransaction())
+            {
+                // Открытие таблицы Блоков для чтения
+                Db.BlockTable acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
+                                                Db.OpenMode.ForRead) as Db.BlockTable;
+                // Открытие записи таблицы Блоков пространства Модели для записи
+                Db.BlockTableRecord acBlkTblRecMS = acTrans.GetObject(acBlkTbl[Db.BlockTableRecord.ModelSpace],
+                                                Db.OpenMode.ForRead) as Db.BlockTableRecord;
+
+                    Ed.SelectionSet acSSet = acSSPrompt.Value;
+                    foreach (Ed.SelectedObject acSSObj in acSSet)
+                    {
+                        if (acSSObj != null)
+                        {
+                            Db.Entity acEnt = acTrans.GetObject(acSSObj.ObjectId,
+                                                     Db.OpenMode.ForRead) as Db.Entity;
+                            if (acEnt != null)
+                            {
+                                if (acEnt is Db.BlockReference)
+                                {
+                                    Db.BlockReference acBlock = (Db.BlockReference)acEnt;
+
+                //Получаю выбранный блок
+               // Db.BlockReference acBlock = acTrans.GetObject(EntRes.ObjectId, Db.OpenMode.ForRead) as Db.BlockReference;
+                //Получаю определение блока в таблице блоков
+                Db.BlockTableRecord acBlkTblRec = acTrans.GetObject(acBlock.BlockTableRecord, Db.OpenMode.ForRead)
+                    as Db.BlockTableRecord;
+
+
+                // Получаю определение блока в таблице динамических блоков
+                // Запоминаю истинное имя блока
+                acBlockName = acBlock.Name;
+
+                if (acBlock.IsDynamicBlock)
+                {
+                    acBlkTblRec = acTrans.GetObject(acBlock.DynamicBlockTableRecord, Db.OpenMode.ForRead) as Db.BlockTableRecord;
+                    Db.BlockTableRecord blr_nam = acTrans.GetObject(acBlkTblRec.ObjectId, Db.OpenMode.ForRead) as Db.BlockTableRecord;
+                    acBlockName = blr_nam.Name;
+
+                    if (acBlkTblRec.HasAttributeDefinitions)
+                    {
+                        bool isPogon = isPogonazh(acBlock.ObjectId);
+                        if (isPogon)
+                        {
+                            pogon.Add(new _lin(acBlock.ObjectId, acBlockName));
+                         }
+                        else
+                        {
+                            switch (acBlockName)
+                            {
+                                //Прямая арматура
+                                case "Arm_zone_v001":
+                                case "Arm_zone_v002":
+                                case "Arm_wall_v002_2":
+                                case "Arm_wall_v002_1":
+                                case "Arm_unit_v001":
+                                    lin.Add(new _lin(acBlock.ObjectId, acBlockName));
+                                    break;
+                                //Гнутые детали
+                                case "Arm_zone_geshka_v002":
+                                case "Arm_zone_geshka_v001":
+                                case "Arm_zagagulina_v001":
+                                case "Arm_homut_v002":
+                                case "Arm_homut_v001":
+                                    detal.Add(new _lin(acBlock.ObjectId, acBlockName));
+                                    break;
+                                
+                                //Каркас
+                                case "Arm_wall_v002_4":
+                                case "Arm_wall_v002_3":
+                                case "Arm_wall_v002_17":
+                                    kr.Add(new _kr(acBlock.ObjectId, acBlockName));
+                                    break;
+
+                                //Каркас
+                                case "Arm_zd":
+                                    zd.Add(new _zd(acBlock.ObjectId, acBlockName));
+                                    break;
+
+                                default:
+                                    //Console.WriteLine("Default case");
+                                    break;
+
+                            } // end switch
+                        } // end if isPogon
+                    } //end if HasAttributeDefinitions
+                } //end if IsDynamicBlock
+
+                                }
+                            }
+                        }
+
+            }
+
+                //Я в этой транзакции ничего не меняю, Все открываю только для чтения.
+                //соответственно и вносить изменения не нужно.
+                acTrans.Commit();
+            }
+
+
+            //тут начинаем формировать таблицу для вывода
+            //Проходим по поганажу
+            //List<_tablRow> pogonTab = new List<_tablRow>();
+
+            //Dictionary<string, _tablRow> pogonTab = new Dictionary<string, _tablRow>();
+            //Dictionary<string, _tablRow> detalTab = new Dictionary<string, _tablRow>();
+            //Dictionary<string, _tablRow> linTab = new Dictionary<string, _tablRow>();
+            
+            Dictionary<string, _tablRow> krTab = new Dictionary<string, _tablRow>();
+            Dictionary<string, _tablRow> zdTab = new Dictionary<string, _tablRow>();
+            Dictionary<string, _tablRow> ArmTab = new Dictionary<string, _tablRow>();
+
+            foreach (_lin i in pogon)
+            {
+                int d = i.diameter;
+                double l = i.length;
+                int c = i.counte;
+
+                _tablRow row = new _tablRow(1,0, d, 1, (int)Math.Ceiling(l * c));
+                string key = d.ToString();
+                if (ArmTab.ContainsKey(row.diameter.ToString()))
+                {
+                    ArmTab[key].AddCounte(row.counte);
+                    ArmTab[key].AddObjID(i.id);
+                }
+                else
+                {
+                    ArmTab.Add(key, row);
+                    ArmTab[key].AddObjID(i.id);
+                }
+            }
+
+
+            foreach (_lin i in detal)
+            {
+                int d = i.diameter;
+                double l = i.length;
+                int c = i.counte;
+
+                _tablRow row = new _tablRow(2, 0, d, l, c);
+                string key = d + "_" + l + " " + i.length_1 + " " + i.length_2;
+                if (ArmTab.ContainsKey(key))
+                {
+                    ArmTab[key].AddCounte(row.counte);
+                    ArmTab[key].AddObjID(i.id);
+
+                }
+                else
+                {
+                    ArmTab.Add(key, row);
+                    ArmTab[key].AddObjID(i.id);
+                }
+            }
+
+
+            foreach (_lin i in lin)
+            {
+                int d = i.diameter;
+                double l = i.length;
+                int c = i.counte;
+
+                _tablRow row = new _tablRow(3, 0, d, l, c);
+                string key = d + " " + l;
+                if (ArmTab.ContainsKey(key))
+                {
+                    ArmTab[key].AddCounte(row.counte);
+                    ArmTab[key].AddObjID(i.id);
+                }
+                else
+                {
+                    ArmTab.Add(key, row);
+                    ArmTab[key].AddObjID(i.id);
+                }
+            }
+
+            foreach (_kr i in kr)
+            {
+                int d = i.diameter;
+                double l = i.length;
+                int c = i.counte;
+
+                _tablRow row = new _tablRow(4, 0, d, l, c);
+                string key = d + "_" + l + " " + i.wall_width;
+                if (krTab.ContainsKey(key))
+                {
+                    krTab[key].AddCounte(row.counte);
+                    krTab[key].AddObjID(i.id);
+
+                }
+                else
+                {
+                    krTab.Add(key, row);
+                    krTab[key].AddObjID(i.id);
+                }
+            }
+
+            foreach (_zd i in zd)
+            {
+                //zdTab
+                int d = 0;
+                double l = 0;
+                int c = 0;
+                _tablRow row = new _tablRow(4, 0, d, l, c);
+
+            }
+
+            // приступаем к нумеровке
+            
+            int poz = 1; // начальная позиция
+
+            var items = from pair in ArmTab
+                        orderby pair.Value.diameter ascending, pair.Value.length ascending
+                        select pair;
+
+            //foreach (KeyValuePair<string, _tablRow> i in pogonTab.OrderBy(i => i.Value.diameter))
+            foreach (KeyValuePair<string, _tablRow> i in items)
+            {
+                ArmTab[i.Key].position = poz;
+                poz = poz + 1;
+            }
+
+            poz = 1; // начальная позиция
+
+            items = from pair in krTab
+                    orderby pair.Key
+                        select pair;
+
+            //foreach (KeyValuePair<string, _tablRow> i in pogonTab.OrderBy(i => i.Value.diameter))
+            foreach (KeyValuePair<string, _tablRow> i in items)
+            {
+                krTab[i.Key].position = poz;
+                poz = poz + 1;
+            }
+
+            
+
+
+
+            //// очищаем списки арматуры:
+            //Пгонажная арматура
+            pogon.Clear();
+            // Детали, гнутые стержни, хомуты, шпильки
+            detal.Clear();
+            //Прямая арматура
+            lin.Clear();
+            // Сборочные единицы
+            // - Каркасы
+            kr.Clear();
+            // - Закладные детали
+            zd.Clear();
+
+
+        } // end static public void bx_armsp
+
+
+        ////private static bool makeTabl(Dictionary<string, _tablRow> tab, int type, int )
+        ////{
+
+
+        ////}
+
+
+        private static bool isPogonazh(Db.ObjectId objID)
+        {
+
+            string attr = GetAttrProperty(objID, "КОММЕНТ");
+            double dl = GetDynamicProperty(objID, "Длина");
+
+            //Костыли от старой ошибки в создании блока.
+            if (dl == -1)
+            {
+                dl = GetDynamicProperty(objID, "Длинна");
+            }
+
+
+            if (dl >= length_planed_reinforcement | attr == ".")
+            {
+                return true;
+                
+            }
+            return false;
+        }
+
+
+        public static double GetDynamicProperty(Db.ObjectId objID, string PropName)
+        {
+
+            // Получение текущего документа и базы данных
+            App.Document acDoc = App.Application.DocumentManager.MdiActiveDocument;
+            Db.Database acCurDb = acDoc.Database;
+
+            using (Db.Transaction acTrans = acCurDb.TransactionManager.StartOpenCloseTransaction())
+            {
+                //Получаю выбранный блок
+                Db.BlockReference acBlock = acTrans.GetObject(objID, Db.OpenMode.ForRead) as Db.BlockReference;
+                //Получаю определение блока в таблице блоков
+                Db.BlockTableRecord acBlkTblRec = acTrans.GetObject(acBlock.BlockTableRecord, Db.OpenMode.ForRead)
+                    as Db.BlockTableRecord;
+
+                if (acBlock.IsDynamicBlock)
+                {
+                    Db.DynamicBlockReferencePropertyCollection acBlockDynProp =
+                        acBlock.DynamicBlockReferencePropertyCollection;
+                    if (acBlockDynProp != null)
+                    {
+                        foreach (Db.DynamicBlockReferenceProperty obj in acBlockDynProp)
+                        {
+                            if (obj.PropertyName.ToUpper() == PropName.ToUpper())
+                            {
+                                //double dl = Math.Round(Double.Parse(obj.Value.ToString()), 0);
+                                return Math.Round(Double.Parse(obj.Value.ToString()), 0);
+                            }
+                        }
+                    }
+                }
+                acTrans.Commit();
+            }
+            return -1;
+        }
+
+
+        public static string GetAttrProperty(Db.ObjectId objID, string PropName)
+        {
+
+            // Получение текущего документа и базы данных
+            App.Document acDoc = App.Application.DocumentManager.MdiActiveDocument;
+            Db.Database acCurDb = acDoc.Database;
+
+            using (Db.Transaction acTrans = acCurDb.TransactionManager.StartOpenCloseTransaction())
+            {
+                //Получаю выбранный блок
+                Db.BlockReference acBlock = acTrans.GetObject(objID, Db.OpenMode.ForRead) as Db.BlockReference;
+                //Получаю определение блока в таблице блоков
+                Db.BlockTableRecord acBlkTblRec = acTrans.GetObject(acBlock.BlockTableRecord, Db.OpenMode.ForRead)
+                    as Db.BlockTableRecord;
+
+                if (acBlkTblRec.HasAttributeDefinitions)
+                {
+
+                    Db.AttributeCollection attrCol = acBlock.AttributeCollection;
+                    if (attrCol.Count > 0)
+                    {
+                        foreach (Db.ObjectId AttID in attrCol)
+                        {
+                            Db.AttributeReference acAttRef = acTrans.GetObject(AttID,
+                                                    Db.OpenMode.ForRead) as Db.AttributeReference;
+
+                            if (acAttRef.Tag.ToUpper() == PropName.ToUpper())
+                            {
+                                return acAttRef.TextString;
+                                // Otm_n = Double.Parse(acAttRef.TextString);
+                                //Double.TryParse(acAttRef.TextString, Otm_n);
+                                // Double.TryParse(acAttRef.TextString.Replace(',','.'), out Otm_n);
+
+                            }
+                        }
+                    }
+                }
+                acTrans.Commit();
+                return String.Empty;
+            }
+        }
+
+
+
+
+        public static void SetAttrProperty(Db.ObjectId objID, string PropName, string value)
+        {
+
+            // Получение текущего документа и базы данных
+            App.Document acDoc = App.Application.DocumentManager.MdiActiveDocument;
+            Db.Database acCurDb = acDoc.Database;
+
+            using (Db.Transaction acTrans = acCurDb.TransactionManager.StartOpenCloseTransaction())
+            {
+                //Получаю выбранный блок
+                Db.BlockReference acBlock = acTrans.GetObject(objID, Db.OpenMode.ForRead) as Db.BlockReference;
+                //Получаю определение блока в таблице блоков
+                Db.BlockTableRecord acBlkTblRec = acTrans.GetObject(acBlock.BlockTableRecord, Db.OpenMode.ForRead)
+                    as Db.BlockTableRecord;
+
+                if (acBlkTblRec.HasAttributeDefinitions)
+                {
+
+                    Db.AttributeCollection attrCol = acBlock.AttributeCollection;
+                    if (attrCol.Count > 0)
+                    {
+                        foreach (Db.ObjectId AttID in attrCol)
+                        {
+                            Db.AttributeReference acAttRef = acTrans.GetObject(AttID,
+                                                    Db.OpenMode.ForRead) as Db.AttributeReference;
+
+                            if (acAttRef.Tag.ToUpper() == PropName.ToUpper())
+                            {
+                                acAttRef.UpgradeOpen();
+                                acAttRef.TextString = value;
+                                acAttRef.DowngradeOpen();
+                                break;
+                               
+                            }
+                        }
+                    }
+                }
+                //return String.Empty;
+                acTrans.Commit();
+            }
+            
+        }
+
+    }
+}
