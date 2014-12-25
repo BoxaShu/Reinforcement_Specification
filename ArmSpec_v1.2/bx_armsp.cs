@@ -410,6 +410,11 @@ namespace boxashu
                 poz = poz + 1;
             }
 
+            makepalette();
+
+
+
+
         } // end static public void bx_armsp
 
         public static List<Object> tablRowList()
@@ -426,50 +431,50 @@ namespace boxashu
                 _tablRowList.AddRange(zdTab.Values.ToList());
                 return _tablRowList; 
         }
-        
-
-        //private static void makepalette()
-        //{
-
-        //    //тут выведим полученные таблицы в консоль
-        //    if (_ps == null)
-        //    {
-
-        //        // Create the palette set
-
-        //        _ps = new Win.PaletteSet("ArmSP");
-        //        _ps.Size = new Size(400, 600);
-        //        _ps.DockEnabled =
-        //          (Win.DockSides)((int)Win.DockSides.Left + (int)Win.DockSides.Right);
-
-        //        // Create our first user control instance and
-        //        // host it on a palette using AddVisual()
 
 
-        //        UserControl1 uc = new UserControl1();
-        //        _ps.AddVisual("AddVisual", uc);
+        private static void makepalette()
+        {
+            //_ps = null;
+            ////тут выведим полученные таблицы в консоль
+            //if (_ps == null)
+            //{
+               
+                // Create the palette set
 
-        //        //uc.main_grig.ItemsSource = tablRowList();
+                _ps = new Win.PaletteSet("ArmSP");
+                _ps.Size = new Size(400, 600);
+                _ps.DockEnabled =
+                  (Win.DockSides)((int)Win.DockSides.Left + (int)Win.DockSides.Right);
 
-        //        // Create our second user control instance and
-        //        // host it in an ElementHost, which allows
-        //        // interop between WinForms and WPF
-
-        //        //UserControl1 uc2 = new UserControl1();
-        //        //ElementHost host = new ElementHost();
-        //        //host.AutoSize = true;
-        //        //host.Dock = DockStyle.Fill;
-        //        //host.Child = uc2;
-        //        //_ps.Add("Add ElementHost", host);
-
-        //    }
+                // Create our first user control instance and
+                // host it on a palette using AddVisual()
 
 
-        //    // Display our palette set
-        //    //_ps.KeepFocus = true;
-        //    _ps.Visible = true;
-            
-        //}
+                //UserControl1 uc = new UserControl1();
+                //_ps.AddVisual("AddVisual", uc);
+
+                //uc.main_grig.ItemsSource = tablRowList();
+
+                // Create our second user control instance and
+                // host it in an ElementHost, which allows
+                // interop between WinForms and WPF
+
+                UserControl1 uc2 = new UserControl1();
+                ElementHost host = new ElementHost();
+                host.AutoSize = true;
+                host.Dock = DockStyle.Fill;
+                host.Child = uc2;
+                _ps.Add("Add ElementHost", host);
+
+            //}
+
+
+            // Display our palette set
+            //_ps.KeepFocus = true;
+            _ps.Visible = true;
+
+        }
 
 
         private static bool isPogonazh(Db.ObjectId objID)
